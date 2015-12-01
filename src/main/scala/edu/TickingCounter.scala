@@ -1,8 +1,8 @@
 package edu
 
 import akka.actor.{ActorSystem, Cancellable}
-import akka.stream.{ActorMaterializerSettings, ActorMaterializer}
-import akka.stream.scaladsl.{Flow, ZipWith, FlowGraph, Source}
+import akka.stream.{ActorMaterializer, Attributes}
+import akka.stream.scaladsl.{ZipWith, FlowGraph, Source}
 import scala.concurrent.duration._
 
 object TickingCounter {
@@ -11,10 +11,12 @@ object TickingCounter {
   def zipWithTick[A](tick: Source[Unit, Cancellable], toZip: Source[A, Unit]): Source[A, Unit] = {
     Source() { implicit builder: FlowGraph.Builder[Unit] =>
       import FlowGraph.Implicits._
-      val zip = builder.add(ZipWith[Unit, A, A]((a: Unit, i: A) => i))
-      tick ~> zip.in0
-      toZip ~> zip.in1
-      zip.out
+      val zipWith = ZipWith[Unit, A, A]((a: Unit, i: A) => i)
+      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipNode = builder.add(zipWithSmallBuffer)
+      tick ~> zipNode.in0
+      toZip ~> zipNode.in1
+      zipNode.out
     }
   }
 
@@ -34,8 +36,7 @@ object TickingCounter {
   
   def run = {
     implicit val system = ActorSystem()
-    val settings = ActorMaterializerSettings(system).withInputBuffer(1, 1)
-    implicit val materializer = ActorMaterializer(settings)
+    implicit val materializer = ActorMaterializer()
 
     fasterDropped.runWith(Utils.myLoggingSink)
     //sourceAccumulation(counter).runWith(Utils.myLoggingSink)
