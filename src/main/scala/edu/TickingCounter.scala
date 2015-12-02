@@ -1,8 +1,8 @@
 package edu
 
 import akka.actor.{ActorSystem, Cancellable}
-import akka.stream.{ActorMaterializer, Attributes}
-import akka.stream.scaladsl.{ZipWith, FlowGraph, Source}
+import akka.stream.{FanInShape, ActorMaterializer, Attributes}
+import akka.stream.scaladsl.{FlexiMerge, ZipWith, FlowGraph, Source}
 import scala.concurrent.duration._
 import akka.stream.stage._
 
@@ -18,6 +18,42 @@ class LastElemOption[T]() extends DetachedStage[T, Option[T]] {
     val previousValue = currentValue
     currentValue = None
     ctx.push(previousValue)
+  }
+}
+
+import akka.stream.FanInShape._
+class SwitchPorts[A, B](_init: Init[(Unit, A, B)] = Name("Switch"))
+  extends FanInShape[(Unit, A, B)](_init) {
+  val trigger = newInlet[Unit]("trigger")
+  val left = newInlet[A]("left")
+  val right = newInlet[B]("right")
+  protected override def construct(i: Init[(A, B)]) = new SwitchPorts(i)
+}
+class Switch[A, B] extends FlexiMerge[(A, B), SwitchPorts[A, B]](
+  new SwitchPorts, Attributes.name("Switch2State")) {
+  import FlexiMerge._
+
+  override def createMergeLogic(p: PortT) = new MergeLogic[(A, B)] {
+    var direction: Boolean
+    var lastInA: A = _
+
+    val readTrigger: State[Unit] = State[Unit](Read(p.trigger)) { (ctx, input, element) =>
+      direction = !direction
+    }
+
+    val readA: State[A] = State[A](Read(p.left)) { (ctx, input, element) =>
+      lastInA = element
+      readB
+    }
+
+    val readB: State[B] = State[B](Read(p.right)) { (ctx, input, element) =>
+      ctx.emit((lastInA, element))
+      readA
+    }
+
+    override def initialState: State[_] = readA
+
+    override def initialCompletionHandling = eagerClose
   }
 }
 
