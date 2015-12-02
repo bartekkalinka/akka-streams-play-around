@@ -15,9 +15,9 @@ class LastElemOption[T]() extends DetachedStage[T, Option[T]] {
   }
 
   override def onPull(ctx: DetachedContext[Option[T]]): DownstreamDirective = {
-    val result = ctx.push(currentValue)
+    val previousValue = currentValue
     currentValue = None
-    result
+    ctx.push(previousValue)
   }
 }
 
