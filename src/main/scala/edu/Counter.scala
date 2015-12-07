@@ -1,7 +1,7 @@
 package edu
 
 import akka.actor.{ActorSystem, Cancellable}
-import akka.stream.{FanInShape2, ActorMaterializer, Attributes}
+import akka.stream.{SourceShape, FanInShape2, ActorMaterializer, Attributes}
 import akka.stream.scaladsl.{Broadcast, ZipWith, FlowGraph, Source, Merge}
 import scala.concurrent.duration._
 import akka.stream.stage._
@@ -26,10 +26,10 @@ object SwitchingTick {
 
   def apply(firstInterval: FiniteDuration, secondInterval: FiniteDuration, switchingInterval: FiniteDuration): Source[Unit, Unit] = {
     assert(firstInterval < switchingInterval && secondInterval < switchingInterval, "Switching interval should be longer than switched intervals")
-    val switchingTick = Source(0 seconds, switchingInterval, ())
-    val firstTick = Source(0 seconds, firstInterval, ())
-    val secondTick = Source(0 seconds, secondInterval, ())
-    Source() { implicit builder: FlowGraph.Builder[Unit] =>
+    val switchingTick = Source.tick(0 seconds, switchingInterval, ())
+    val firstTick = Source.tick(0 seconds, firstInterval, ())
+    val secondTick = Source.tick(0 seconds, secondInterval, ())
+    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
       import FlowGraph.Implicits._
       val broadcastNode = builder.add(Broadcast[Unit](2))
       switchingTick ~> broadcastNode.in
@@ -43,15 +43,15 @@ object SwitchingTick {
       val merge = builder.add(Merge[Boolean](2))
       zipNode1.out ~> merge.in(0)
       zipNode2.out ~> merge.in(1)
-      merge.out.filter(identity).map(a => ()).outlet
-    }
+      SourceShape(merge.out.filter(identity).map(a => ()).outlet)
+    })
   }
 }
 
 object Ticks {
-  def slowTick: Source[Unit, Cancellable] = Source(0 seconds, 3 seconds, ())
-  def mediumTick: Source[Unit, Cancellable] = Source(0 seconds, 1 seconds, ())
-  def fastTick: Source[Unit, Cancellable] = Source(0 seconds, 0.2 seconds, ())
+  def slowTick: Source[Unit, Cancellable] = Source.tick(0 seconds, 3 seconds, ())
+  def mediumTick: Source[Unit, Cancellable] = Source.tick(0 seconds, 1 seconds, ())
+  def fastTick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.2 seconds, ())
   def switchingTick: Source[Unit, Unit] = SwitchingTick(0.05 seconds, 0.7 seconds, 3 seconds)
 }
 
@@ -67,13 +67,13 @@ object Transformations {
   }
 
   def zipWithTick[A, B](tick: Source[Unit, B], toZip: Source[A, Unit]): Source[A, Unit] =
-    Source() { implicit builder: FlowGraph.Builder[Unit] =>
+    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
       import FlowGraph.Implicits._
       val zipNode = zipWithNode[A]
       tick ~> zipNode.in0
       toZip ~> zipNode.in1
-      zipNode.out
-    }
+      SourceShape(zipNode.out)
+    })
 
   def sourceAccumulation[A](source: Source[A, Unit]): Source[String, Unit] =
     source.scan("")((a, b) => a + b.toString)

@@ -6,6 +6,6 @@ scalaVersion := "2.11.7"
 
 // Change this to another test framework if you prefer
 libraryDependencies ++= Seq(
-	"com.typesafe.akka" % "akka-stream-experimental_2.11" % "1.0"
+	"com.typesafe.akka" % "akka-stream-experimental_2.11" % "2.0-M2"
 )
 
