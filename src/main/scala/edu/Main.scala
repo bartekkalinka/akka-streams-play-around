@@ -8,7 +8,10 @@ object Main {
     println("Start")
     //ZipDemo.run
     //ConflateDemo.run
-    ExpandDemo.run
+    //ExpandDemo.run
+    //ScanDemo.run
+    //SwitchingTickDemo.run
+    DetachedStageDemo.run
   }
 }
 
