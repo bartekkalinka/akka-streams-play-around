@@ -6,7 +6,9 @@ import scala.concurrent.Future
 object Main {
   def main(args: Array[String]): Unit = {
     println("Start")
-    CountersDemo.run
+    //ZipDemo.run
+    //ConflateDemo.run
+    ExpandDemo.run
   }
 }
 
