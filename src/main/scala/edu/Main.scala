@@ -11,6 +11,7 @@ object Main {
     //ExpandDemo.run
     //ScanDemo.run
     //SwitchingTickDemo.run
+    //ExpandConflateDemo.run
     DetachedStageDemo.run
   }
 }

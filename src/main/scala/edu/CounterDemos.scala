@@ -106,6 +106,32 @@ object SwitchingTickDemo {
   }
 }
 
+object ExpandConflateDemo {
+  // CAUTION!!!! DOES NOT WORK :)
+  val irregularCounter = ZipDemo.zippedSource(SwitchingTick(0.1 seconds, 1 seconds, 5 seconds))
+  val slowTick = Source.tick(0 seconds, 1 seconds, ())
+
+  def conflateFastThroughSlow: Source[Option[Long], Unit] =
+    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
+      import FlowGraph.Implicits._
+      val zipWith = ZipWith[Unit, Option[Long], Option[Long]]((a: Unit, i: Option[Long]) => i)
+      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipNode = builder.add(zipWithSmallBuffer)
+      slowTick ~> zipNode.in0
+      irregularCounter
+        .conflate(identity)((acc, elem) => elem)
+        .expand[Option[Long], Option[Long]](elem => Some(elem))(elem => (elem, None)) ~> zipNode.in1
+      SourceShape(zipNode.out)
+    })
+
+  def run = {
+    implicit val system = ActorSystem()
+    implicit val materializer = ActorMaterializer()
+
+    conflateFastThroughSlow.runWith(Sink.foreach(println))
+  }
+}
+
 object DetachedStageDemo {
   def run = {
     implicit val system = ActorSystem()
