@@ -2,7 +2,7 @@ package edu
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.stream.{ActorMaterializer, SourceShape, Attributes}
-import akka.stream.scaladsl.{Sink, ZipWith, FlowGraph, Source}
+import akka.stream.scaladsl.{Sink, ZipWith, GraphDSL, Source}
 import scala.concurrent.duration._
 
 object ZipDemo {
@@ -10,8 +10,8 @@ object ZipDemo {
   val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
 
   def zippedSource[A](inputTick: Source[Unit, A]): Source[Long, Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
       val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
@@ -33,8 +33,8 @@ object ConflateDemo {
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
   def conflateFastThroughSlow: Source[Long, Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
       val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
@@ -56,8 +56,8 @@ object ExpandDemo {
   val fastTick = Source.tick(0 seconds, 0.2 seconds, ())
 
   def expandSlowThroughFast: Source[Option[Long], Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Option[Long], Option[Long]]((a: Unit, i: Option[Long]) => i)
       val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
@@ -79,8 +79,8 @@ object ScanDemo {
   val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
 
   def zipScannedSource(inputTick: Source[Unit, Cancellable]): Source[Long, Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
       val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
@@ -112,8 +112,8 @@ object ExpandConflateDemo {
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
   def conflateFastThroughSlow: Source[Option[Long], Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Option[Long], Option[Long]]((a: Unit, i: Option[Long]) => i)
       val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)

@@ -2,7 +2,7 @@ package edu
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.stream.{SourceShape, FanInShape2, ActorMaterializer, Attributes}
-import akka.stream.scaladsl.{Broadcast, ZipWith, FlowGraph, Source, Merge}
+import akka.stream.scaladsl.{Broadcast, ZipWith, GraphDSL, Source, Merge}
 import scala.concurrent.duration._
 import akka.stream.stage._
 
@@ -29,8 +29,8 @@ object SwitchingTick {
     val switchingTick = Source.tick(0 seconds, switchingInterval, ())
     val firstTick = Source.tick(0 seconds, firstInterval, ())
     val secondTick = Source.tick(0 seconds, secondInterval, ())
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val broadcastNode = builder.add(Broadcast[Unit](2))
       switchingTick ~> broadcastNode.in
       val neg: ((Boolean, Unit) => Boolean) = {case (a, ()) => !a}
@@ -60,15 +60,15 @@ object Counter {
 }
 
 object Transformations {
-  def zipWithNode[A](implicit builder: FlowGraph.Builder[Unit]): FanInShape2[Unit, A, A] =  {
+  def zipWithNode[A](implicit builder: GraphDSL.Builder[Unit]): FanInShape2[Unit, A, A] =  {
     val zipWith = ZipWith[Unit, A, A]((a: Unit, i: A) => i)
     val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
     builder.add(zipWithSmallBuffer)
   }
 
   def zipWithTick[A, B](tick: Source[Unit, B], toZip: Source[A, Unit]): Source[A, Unit] =
-    Source.fromGraph(FlowGraph.create() { implicit builder: FlowGraph.Builder[Unit] =>
-      import FlowGraph.Implicits._
+    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+      import GraphDSL.Implicits._
       val zipNode = zipWithNode[A]
       tick ~> zipNode.in0
       toZip ~> zipNode.in1

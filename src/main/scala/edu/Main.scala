@@ -6,13 +6,13 @@ import scala.concurrent.Future
 object Main {
   def main(args: Array[String]): Unit = {
     println("Start")
-    //ZipDemo.run
+    ZipDemo.run
     //ConflateDemo.run
     //ExpandDemo.run
     //ScanDemo.run
     //SwitchingTickDemo.run
     //ExpandConflateDemo.run
-    DetachedStageDemo.run
+    //DetachedStageDemo.run
   }
 }
 
