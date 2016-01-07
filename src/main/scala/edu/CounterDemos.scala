@@ -6,14 +6,19 @@ import akka.stream.scaladsl.{Sink, ZipWith, GraphDSL, Source}
 import scala.concurrent.duration._
 
 object ZipDemo {
-  val numericStream: Source[Long, Unit] = Source(Stream.iterate(0L)(_ + 1))
-  val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
+  val numericStream: Source[Long, Unit] = 
+    Source(Stream.iterate(0L)(_ + 1))
+  val tick: Source[Unit, Cancellable] = 
+    Source.tick(0 seconds, 0.4 seconds, ())
 
-  def zippedSource[A](inputTick: Source[Unit, A]): Source[Long, Unit] =
+  def zippedSource[A](inputTick: Source[Unit, A]): 
+  Source[Long, Unit] =
     Source.fromGraph(GraphDSL.create() { 
       implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
-      val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
+      val zipWith = ZipWith[Unit, Long, Long](
+        (a: Unit, i: Long) => i
+      )
       val zipWithSmallBuffer = zipWith.withAttributes(
         Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
@@ -94,10 +99,14 @@ object ExpandDemo {
 }
 
 object ScanDemo {
-  val numericStream: Source[Long, Unit] = Source(Stream.iterate(0L)(_ + 1))
-  val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
+  val numericStream: Source[Long, Unit] = 
+    Source(Stream.iterate(0L)(_ + 1))
+  val tick: Source[Unit, Cancellable] = 
+    Source.tick(0 seconds, 0.4 seconds, ())
 
-  def zipScannedSource(inputTick: Source[Unit, Cancellable]): Source[Long, Unit] =
+  def zipScannedSource(
+    inputTick: Source[Unit, Cancellable]): 
+  Source[Long, Unit] =
     Source.fromGraph(GraphDSL.create() { 
       implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
