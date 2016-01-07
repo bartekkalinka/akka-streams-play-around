@@ -10,10 +10,12 @@ object ZipDemo {
   val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
 
   def zippedSource[A](inputTick: Source[Unit, A]): Source[Long, Unit] =
-    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    Source.fromGraph(GraphDSL.create() { 
+      implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
-      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipWithSmallBuffer = zipWith.withAttributes(
+        Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
       inputTick ~> zipNode.in0
       numericStream ~> zipNode.in1
@@ -29,17 +31,24 @@ object ZipDemo {
 }
 
 object ConflateDemo {
-  val fastNumeric = ZipDemo.zippedSource(Source.tick(0 seconds, 0.2 seconds, ()))
+  val fastNumeric = ZipDemo.zippedSource(
+    Source.tick(0 seconds, 0.2 seconds, ()))
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
   def conflateFastThroughSlow: Source[Long, Unit] =
-    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    Source.fromGraph(GraphDSL.create() { 
+      implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
-      val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
-      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipWith = 
+        ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
+      val zipWithSmallBuffer = 
+        zipWith.withAttributes(
+          Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
       slowTick ~> zipNode.in0
-      fastNumeric.conflate(identity)((acc, elem) => elem) ~> zipNode.in1
+      fastNumeric.conflate(identity)(
+        (acc, elem) => elem
+      ) ~> zipNode.in1
       SourceShape(zipNode.out)
     })
 
@@ -52,17 +61,25 @@ object ConflateDemo {
 }
 
 object ExpandDemo {
-  val slowNumeric = ZipDemo.zippedSource(Source.tick(0 seconds, 1 seconds, ()))
+  val slowNumeric = ZipDemo.zippedSource(
+    Source.tick(0 seconds, 1 seconds, ()))
   val fastTick = Source.tick(0 seconds, 0.2 seconds, ())
 
   def expandSlowThroughFast: Source[Option[Long], Unit] =
-    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    Source.fromGraph(GraphDSL.create() { 
+      implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
-      val zipWith = ZipWith[Unit, Option[Long], Option[Long]]((a: Unit, i: Option[Long]) => i)
-      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipWith = 
+        ZipWith[Unit, Option[Long], Option[Long]](
+          (a: Unit, i: Option[Long]) => i)
+      val zipWithSmallBuffer = 
+        zipWith.withAttributes(
+          Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
       fastTick ~> zipNode.in0
-      slowNumeric.expand[Option[Long], Option[Long]](elem => Some(elem))(elem => (elem, None)) ~> zipNode.in1
+      slowNumeric.expand[Option[Long], Option[Long]](
+        elem => Some(elem))(elem => (elem, None)
+      ) ~> zipNode.in1
       SourceShape(zipNode.out)
     })
 
@@ -70,7 +87,9 @@ object ExpandDemo {
     implicit val system = ActorSystem()
     implicit val materializer = ActorMaterializer()
 
-    expandSlowThroughFast.runWith(Sink.foreach(println))
+    expandSlowThroughFast.runWith(
+      Sink.foreach(println)
+    )
   }
 }
 
@@ -79,10 +98,17 @@ object ScanDemo {
   val tick: Source[Unit, Cancellable] = Source.tick(0 seconds, 0.4 seconds, ())
 
   def zipScannedSource(inputTick: Source[Unit, Cancellable]): Source[Long, Unit] =
-    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    Source.fromGraph(GraphDSL.create() { 
+      implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
-      val zipWith = ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
-      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipWith = 
+        ZipWith[Unit, Long, Long](
+          (a: Unit, i: Long) => i
+        )
+      val zipWithSmallBuffer = 
+        zipWith.withAttributes(
+          Attributes.inputBuffer(initial = 1, max = 1)
+        )
       val zipNode = builder.add(zipWithSmallBuffer)
       inputTick ~> zipNode.in0
       numericStream.scan(0L)(_ + _) ~> zipNode.in1
@@ -102,25 +128,39 @@ object SwitchingTickDemo {
     implicit val system = ActorSystem()
     implicit val materializer = ActorMaterializer()
 
-    ZipDemo.zippedSource(SwitchingTick(0.1 seconds, 0.3 seconds, 2.5 seconds)).runWith(Sink.foreach(println))
+    ZipDemo.zippedSource(
+      SwitchingTick(0.1 seconds, 0.3 seconds, 2.5 seconds)
+    ).runWith(Sink.foreach(println))
   }
 }
 
 object ExpandConflateDemo {
   // CAUTION!!!! DOES NOT WORK :)
-  val irregularCounter = ZipDemo.zippedSource(SwitchingTick(0.1 seconds, 1 seconds, 5 seconds))
+  val irregularCounter = 
+    ZipDemo.zippedSource(
+      SwitchingTick(0.1 seconds, 1 seconds, 5 seconds)
+    )
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
   def conflateFastThroughSlow: Source[Option[Long], Unit] =
-    Source.fromGraph(GraphDSL.create() { implicit builder: GraphDSL.Builder[Unit] =>
+    Source.fromGraph(GraphDSL.create() { 
+      implicit builder: GraphDSL.Builder[Unit] =>
       import GraphDSL.Implicits._
-      val zipWith = ZipWith[Unit, Option[Long], Option[Long]]((a: Unit, i: Option[Long]) => i)
-      val zipWithSmallBuffer = zipWith.withAttributes(Attributes.inputBuffer(initial = 1, max = 1))
+      val zipWith = 
+        ZipWith[Unit, Option[Long], Option[Long]](
+          (a: Unit, i: Option[Long]) => i
+        )
+      val zipWithSmallBuffer = 
+        zipWith.withAttributes(
+          Attributes.inputBuffer(initial = 1, max = 1)
+        )
       val zipNode = builder.add(zipWithSmallBuffer)
       slowTick ~> zipNode.in0
       irregularCounter
         .conflate(identity)((acc, elem) => elem)
-        .expand[Option[Long], Option[Long]](elem => Some(elem))(elem => (elem, None)) ~> zipNode.in1
+        .expand[Option[Long], Option[Long]](
+          elem => Some(elem)
+        )(elem => (elem, None)) ~> zipNode.in1
       SourceShape(zipNode.out)
     })
 
@@ -137,11 +177,16 @@ object DetachedStageDemo {
     implicit val system = ActorSystem()
     implicit val materializer = ActorMaterializer()
 
-    val irregularCounter = ZipDemo.zippedSource(SwitchingTick(0.1 seconds, 1 seconds, 5 seconds))
+    val irregularCounter = 
+      ZipDemo.zippedSource(
+        SwitchingTick(0.1 seconds, 1 seconds, 5 seconds)
+      )
 
     Transformations.zipWithTick(
       Source.tick(0 seconds, 0.4 seconds, ()),
-      irregularCounter.transform(() => new LastElemOption[Long]))
+      irregularCounter.transform(
+        () => new LastElemOption[Long])
+      )
     .runWith(Sink.foreach(println))
   }
 }
