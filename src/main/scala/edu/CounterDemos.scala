@@ -1,20 +1,21 @@
 package edu
 
+import akka.NotUsed
 import akka.actor.{ActorSystem, Cancellable}
 import akka.stream.{ActorMaterializer, SourceShape, Attributes}
 import akka.stream.scaladsl.{Sink, ZipWith, GraphDSL, Source}
 import scala.concurrent.duration._
 
 object ZipDemo {
-  val numericStream: Source[Long, Unit] = 
+  val numericStream: Source[Long, NotUsed] =
     Source(Stream.iterate(0L)(_ + 1))
   val tick: Source[Unit, Cancellable] = 
     Source.tick(0 seconds, 0.4 seconds, ())
 
   def zippedSource[A](inputTick: Source[Unit, A]): 
-  Source[Long, Unit] =
+  Source[Long, NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
-      implicit builder: GraphDSL.Builder[Unit] =>
+      implicit builder: GraphDSL.Builder[NotUsed] =>
       import GraphDSL.Implicits._
       val zipWith = ZipWith[Unit, Long, Long](
         (a: Unit, i: Long) => i
@@ -40,9 +41,9 @@ object ConflateDemo {
     Source.tick(0 seconds, 0.2 seconds, ()))
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
-  def conflateFastThroughSlow: Source[Long, Unit] =
+  def conflateFastThroughSlow: Source[Long, NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
-      implicit builder: GraphDSL.Builder[Unit] =>
+      implicit builder: GraphDSL.Builder[NotUsed] =>
       import GraphDSL.Implicits._
       val zipWith = 
         ZipWith[Unit, Long, Long]((a: Unit, i: Long) => i)
@@ -51,7 +52,7 @@ object ConflateDemo {
           Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
       slowTick ~> zipNode.in0
-      fastNumeric.conflate(identity)(
+      fastNumeric.conflate(
         (acc, elem) => elem
       ) ~> zipNode.in1
       SourceShape(zipNode.out)
@@ -70,9 +71,9 @@ object ExpandDemo {
     Source.tick(0 seconds, 1 seconds, ()))
   val fastTick = Source.tick(0 seconds, 0.2 seconds, ())
 
-  def expandSlowThroughFast: Source[Option[Long], Unit] =
+  def expandSlowThroughFast: Source[Option[Long], NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
-      implicit builder: GraphDSL.Builder[Unit] =>
+      implicit builder: GraphDSL.Builder[NotUsed] =>
       import GraphDSL.Implicits._
       val zipWith = 
         ZipWith[Unit, Option[Long], Option[Long]](
@@ -82,8 +83,8 @@ object ExpandDemo {
           Attributes.inputBuffer(initial = 1, max = 1))
       val zipNode = builder.add(zipWithSmallBuffer)
       fastTick ~> zipNode.in0
-      slowNumeric.expand[Option[Long], Option[Long]](
-        elem => Some(elem))(elem => (elem, None)
+      slowNumeric.expand[Option[Long]](
+        elem => Iterator(Some(elem)) ++ Iterator.continually(None)
       ) ~> zipNode.in1
       SourceShape(zipNode.out)
     })
@@ -99,16 +100,16 @@ object ExpandDemo {
 }
 
 object ScanDemo {
-  val numericStream: Source[Long, Unit] = 
+  val numericStream: Source[Long, NotUsed] =
     Source(Stream.iterate(0L)(_ + 1))
   val tick: Source[Unit, Cancellable] = 
     Source.tick(0 seconds, 0.4 seconds, ())
 
   def zipScannedSource(
     inputTick: Source[Unit, Cancellable]): 
-  Source[Long, Unit] =
+  Source[Long, NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
-      implicit builder: GraphDSL.Builder[Unit] =>
+      implicit builder: GraphDSL.Builder[NotUsed] =>
       import GraphDSL.Implicits._
       val zipWith = 
         ZipWith[Unit, Long, Long](
@@ -151,9 +152,9 @@ object ExpandConflateDemo {
     )
   val slowTick = Source.tick(0 seconds, 1 seconds, ())
 
-  def conflateFastThroughSlow: Source[Option[Long], Unit] =
+  def conflateFastThroughSlow: Source[Option[Long], NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
-      implicit builder: GraphDSL.Builder[Unit] =>
+      implicit builder: GraphDSL.Builder[NotUsed] =>
       import GraphDSL.Implicits._
       val zipWith = 
         ZipWith[Unit, Option[Long], Option[Long]](
@@ -166,10 +167,8 @@ object ExpandConflateDemo {
       val zipNode = builder.add(zipWithSmallBuffer)
       slowTick ~> zipNode.in0
       irregularCounter
-        .conflate(identity)((acc, elem) => elem)
-        .expand[Option[Long], Option[Long]](
-          elem => Some(elem)
-        )(elem => (elem, None)) ~> zipNode.in1
+        .conflate((acc, elem) => elem)
+        .expand[Option[Long]](elem => Iterator(Some(elem)) ++ Iterator.continually(None)) ~> zipNode.in1
       SourceShape(zipNode.out)
     })
 
