@@ -145,12 +145,11 @@ object SwitchingTickDemo {
 }
 
 object ExpandConflateDemo {
-  // CAUTION!!!! DOES NOT WORK :)
-  val irregularCounter = 
+  val irregularCounter =
     ZipDemo.zippedSource(
       SwitchingTick(0.1 seconds, 1 seconds, 5 seconds)
     )
-  val slowTick = Source.tick(0 seconds, 1 seconds, ())
+  val mediumTick = Source.tick(0 seconds, 0.4 seconds, ())
 
   def conflateFastThroughSlow: Source[Option[Long], NotUsed] =
     Source.fromGraph(GraphDSL.create() { 
@@ -165,7 +164,7 @@ object ExpandConflateDemo {
           Attributes.inputBuffer(initial = 1, max = 1)
         )
       val zipNode = builder.add(zipWithSmallBuffer)
-      slowTick ~> zipNode.in0
+      mediumTick ~> zipNode.in0
       irregularCounter
         .conflate((acc, elem) => elem)
         .expand[Option[Long]](elem => Iterator(Some(elem)) ++ Iterator.continually(None)) ~> zipNode.in1
